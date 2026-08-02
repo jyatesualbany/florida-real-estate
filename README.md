@@ -2,9 +2,11 @@
 
 A small Python agent that collects **foreclosed condo listings in Florida**
 and exports them to a single CSV. Its primary, most reliable source is
-public county/court foreclosure records; it can optionally also search
-realtor.com and Zillow, best-effort, when those sites don't block it (see
-below -- they usually do).
+public county/court foreclosure records. It can optionally also pull from
+HUD Home Store and HomeSteps -- official federal/GSE portals for
+properties already foreclosed and owned by HUD/Freddie Mac, no ToS
+scraping restriction -- and, best-effort, from realtor.com and Zillow
+when those sites don't block it (see below -- they usually do).
 
 ## How it works
 
@@ -32,6 +34,41 @@ County auction page (live or saved HTML)
         |
         v
   csv_export  ---------------> florida_foreclosed_condos.csv
+```
+
+## HUD Home Store and HomeSteps (official, no ToS restriction)
+
+`--hud-home-store` and `--homesteps` add two more sources, both worth
+using before reaching for realtor.com/Zillow:
+
+- **HUD Home Store** lists properties HUD already foreclosed on (via FHA
+  insurance claims) and now owns, for sale nationwide. It's run by a
+  federal agency, so there's no scraping-restriction Terms of Service to
+  worry about the way there is with Zillow/realtor.com.
+- **HomeSteps** is the equivalent for Freddie Mac -- technically a
+  government-sponsored enterprise (GSE) under FHFA conservatorship, not
+  a federal agency itself, but the same idea: an official REO portal,
+  not a commercial listing site.
+- Both are arguably a *better conceptual fit* than the county auction
+  sites for "foreclosed condo for sale": the county sites show upcoming
+  auctions (not yet foreclosed), while these show inventory that's
+  already been through foreclosure and is currently for sale.
+- **Same caveat as everything unverified in this repo**: outbound access
+  to both sites was unavailable while building this, so
+  `sources/hud_home_store.py` / `sources/homesteps.py` were not checked
+  against a live response. They're implemented with the same
+  configurable-CSS-selector approach as the county adapter (see
+  `DEFAULT_SELECTORS` in each file) -- confirm and adjust selectors
+  after inspecting a real page. `--hud-home-store-html` /
+  `--homesteps-html` parse a page you save yourself, same as the other
+  manual-HTML fallbacks.
+- See [`OFFICIAL_CHANNELS.md`](OFFICIAL_CHANNELS.md) for more on why
+  these (and a direct public-records request to a county Clerk) are
+  generally the better path versus scraping.
+
+```bash
+fl-foreclosed-condos --hud-home-store --homesteps --continue-on-error --output out.csv
+fl-foreclosed-condos --hud-home-store-html saved_pages/hud.html --homesteps-html saved_pages/homesteps.html --output out.csv
 ```
 
 ## Realtor.com and Zillow (best-effort, likely blocked)
@@ -152,13 +189,13 @@ fl-foreclosed-condos --manual-html miami-dade=saved_pages/miami_dade.html --outp
 ```
 
 `--counties` and `--manual-html` are repeatable, and any combination of
-`--counties`, `--manual-html`, `--realtor-com`, `--realtor-com-html`,
+`--counties`, `--manual-html`, `--hud-home-store`, `--hud-home-store-html`,
+`--homesteps`, `--homesteps-html`, `--realtor-com`, `--realtor-com-html`,
 `--zillow`, and `--zillow-html` can be used together in one run (see the
-[Realtor.com and Zillow](#realtorcom-and-zillow-best-effort-likely-blocked)
-section above before turning those two on). Add `--continue-on-error` to
-have a failing source get skipped (with an error printed to stderr)
-instead of aborting the whole run, and `--include-all-property-types` to
-keep every row instead of condos only.
+sections above on each source before turning them on). Add
+`--continue-on-error` to have a failing source get skipped (with an error
+printed to stderr) instead of aborting the whole run, and
+`--include-all-property-types` to keep every row instead of condos only.
 
 ### Output CSV columns
 
@@ -167,7 +204,10 @@ opening_bid, property_type, legal_description, beds, baths,
 square_footage, year_built, hoa_info, is_condo, source_name, source_url`
 
 Any field a source can't supply is left blank rather than omitted, so
-every row has the same columns.
+every row has the same columns. Note: `opening_bid` means what it says
+for the county auction sources, but for HUD Home Store, HomeSteps,
+realtor.com, and Zillow -- which don't have "bids" -- that same column
+holds the listing's asking/list price instead.
 
 ## Enriching with property details (optional)
 

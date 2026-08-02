@@ -24,6 +24,8 @@ from typing import List, Optional, Tuple
 from .condo_filter import filter_condos, tag_condos
 from .csv_export import write_csv
 from .registry import build_source, known_counties, load_config
+from .sources.homesteps import HomeStepsSource
+from .sources.hud_home_store import HudHomeStoreSource
 from .sources.manual_html import ManualHtmlSource
 from .sources.realtor_com import RealtorComSource
 from .sources.zillow import ZillowSource
@@ -99,6 +101,39 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Parse a Zillow results page saved from your browser instead of fetching live.",
     )
     parser.add_argument(
+        "--hud-home-store",
+        action="store_true",
+        help=(
+            "Also search HUD Home Store live for HUD-owned (already "
+            "foreclosed) FL properties for sale. Official federal source, "
+            "no ToS scraping restriction, but the adapter's page-structure "
+            "assumptions were not verified live -- see README. Use "
+            "--hud-home-store-html to parse a page saved from your "
+            "browser instead."
+        ),
+    )
+    parser.add_argument(
+        "--hud-home-store-html",
+        metavar="PATH",
+        help="Parse a HUD Home Store results page saved from your browser instead of fetching live.",
+    )
+    parser.add_argument(
+        "--homesteps",
+        action="store_true",
+        help=(
+            "Also search HomeSteps (Freddie Mac) live for FL REO "
+            "properties for sale. Official GSE source, no ToS scraping "
+            "restriction, but the adapter's page-structure assumptions "
+            "were not verified live -- see README. Use --homesteps-html "
+            "to parse a page saved from your browser instead."
+        ),
+    )
+    parser.add_argument(
+        "--homesteps-html",
+        metavar="PATH",
+        help="Parse a HomeSteps results page saved from your browser instead of fetching live.",
+    )
+    parser.add_argument(
         "--output",
         default="florida_foreclosed_condos.csv",
         help="Output CSV path (default: florida_foreclosed_condos.csv)",
@@ -147,12 +182,17 @@ def run(argv: Optional[List[str]] = None) -> int:
             args.realtor_com_html,
             args.zillow,
             args.zillow_html,
+            args.hud_home_store,
+            args.hud_home_store_html,
+            args.homesteps,
+            args.homesteps_html,
         ]
     ):
         parser.error(
             "Specify at least one source: --counties, --manual-html, "
-            "--realtor-com, --realtor-com-html, --zillow, or "
-            "--zillow-html (or use --list-counties)."
+            "--realtor-com, --realtor-com-html, --zillow, --zillow-html, "
+            "--hud-home-store, --hud-home-store-html, --homesteps, or "
+            "--homesteps-html (or use --list-counties)."
         )
 
     listings = []
@@ -232,6 +272,58 @@ def run(argv: Optional[List[str]] = None) -> int:
         except Exception as exc:  # noqa: BLE001 - report and keep going or abort
             had_errors = True
             print(f"[zillow] ERROR parsing {args.zillow_html}: {exc}", file=sys.stderr)
+            if not args.continue_on_error:
+                return 1
+
+    if args.hud_home_store:
+        try:
+            fetched = HudHomeStoreSource().fetch_listings()
+            print(f"[hud-home-store] fetched {len(fetched)} listings", file=sys.stderr)
+            listings.extend(fetched)
+        except Exception as exc:  # noqa: BLE001 - report and keep going or abort
+            had_errors = True
+            print(f"[hud-home-store] ERROR: {exc}", file=sys.stderr)
+            if not args.continue_on_error:
+                return 1
+
+    if args.hud_home_store_html:
+        try:
+            html = Path(args.hud_home_store_html).read_text(encoding="utf-8", errors="replace")
+            fetched = HudHomeStoreSource().parse_html(html)
+            print(
+                f"[hud-home-store] parsed {len(fetched)} listings from {args.hud_home_store_html}",
+                file=sys.stderr,
+            )
+            listings.extend(fetched)
+        except Exception as exc:  # noqa: BLE001 - report and keep going or abort
+            had_errors = True
+            print(f"[hud-home-store] ERROR parsing {args.hud_home_store_html}: {exc}", file=sys.stderr)
+            if not args.continue_on_error:
+                return 1
+
+    if args.homesteps:
+        try:
+            fetched = HomeStepsSource().fetch_listings()
+            print(f"[homesteps] fetched {len(fetched)} listings", file=sys.stderr)
+            listings.extend(fetched)
+        except Exception as exc:  # noqa: BLE001 - report and keep going or abort
+            had_errors = True
+            print(f"[homesteps] ERROR: {exc}", file=sys.stderr)
+            if not args.continue_on_error:
+                return 1
+
+    if args.homesteps_html:
+        try:
+            html = Path(args.homesteps_html).read_text(encoding="utf-8", errors="replace")
+            fetched = HomeStepsSource().parse_html(html)
+            print(
+                f"[homesteps] parsed {len(fetched)} listings from {args.homesteps_html}",
+                file=sys.stderr,
+            )
+            listings.extend(fetched)
+        except Exception as exc:  # noqa: BLE001 - report and keep going or abort
+            had_errors = True
+            print(f"[homesteps] ERROR parsing {args.homesteps_html}: {exc}", file=sys.stderr)
             if not args.continue_on_error:
                 return 1
 

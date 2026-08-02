@@ -77,7 +77,27 @@ reasonable place to begin: Miami-Dade, Broward, Palm Beach, Hillsborough,
 Orange, Pinellas, Duval, and Lee. (Already present in
 `config/counties.yaml` as the RealForeclose-based live/manual sources.)
 
-## 6. Zillow and realtor.com: the only real "official" options
+## 6. HUD Home Store and HomeSteps -- already implemented in this repo
+
+These two are already wired in as `--hud-home-store` / `--homesteps`
+(see `sources/hud_home_store.py` / `sources/homesteps.py`):
+
+- **HUD Home Store** -- HUD's official portal for HUD-owned properties
+  (foreclosed via FHA insurance claims), for sale nationwide. Run by a
+  federal agency, so no scraping-restriction ToS to work around.
+- **HomeSteps** -- the equivalent for Freddie Mac. Not literally federal
+  (Freddie Mac is a GSE under FHFA conservatorship), but the same idea:
+  an official REO portal rather than a private commercial listing site.
+
+Both are arguably a better fit for "foreclosed condo for sale" than the
+county auction calendars -- those show *upcoming* auctions of
+not-yet-foreclosed properties, while HUD Home Store/HomeSteps show
+inventory that's already been through foreclosure and is currently for
+sale. Same disclaimer as the rest of this project applies: their page
+structure wasn't confirmed live, so treat the current selectors as a
+starting point to verify.
+
+## 7. Zillow and realtor.com: the only real "official" options
 
 For completeness, since this project also has best-effort adapters for
 these two sites (see `sources/realtor_com.py` / `sources/zillow.py`):
