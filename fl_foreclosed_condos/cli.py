@@ -10,16 +10,23 @@ Examples:
     python -m fl_foreclosed_condos.cli \\
         --manual-html miami-dade=saved_pages/miami_dade_results.html \\
         --output florida_foreclosed_condos.csv
+
+    python -m fl_foreclosed_condos.cli \\
+        --counties miami-dade --realtor-com --zillow \\
+        --continue-on-error --output florida_foreclosed_condos.csv
 """
 
 import argparse
 import sys
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from .condo_filter import filter_condos, tag_condos
 from .csv_export import write_csv
 from .registry import build_source, known_counties, load_config
 from .sources.manual_html import ManualHtmlSource
+from .sources.realtor_com import RealtorComSource
+from .sources.zillow import ZillowSource
 
 
 def _split_manual_html_arg(raw: str) -> Tuple[str, str]:
@@ -56,6 +63,40 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "Parse a locally saved auction results page instead of "
             "fetching live, e.g. miami-dade=saved.html. Repeatable."
         ),
+    )
+    parser.add_argument(
+        "--realtor-com",
+        action="store_true",
+        help=(
+            "Also search realtor.com live for FL condo foreclosures. "
+            "realtor.com's Terms of Use prohibit automated scraping and "
+            "the site runs bot-mitigation this tool does not try to "
+            "evade -- expect this to often fail. See README. Use "
+            "--realtor-com-html to parse a page saved from your browser "
+            "instead."
+        ),
+    )
+    parser.add_argument(
+        "--realtor-com-html",
+        metavar="PATH",
+        help="Parse a realtor.com results page saved from your browser instead of fetching live.",
+    )
+    parser.add_argument(
+        "--zillow",
+        action="store_true",
+        help=(
+            "Also search Zillow live for FL foreclosures. Zillow's Terms "
+            "of Use explicitly prohibit scraping and the site actively "
+            "enforces this -- this tool does not attempt to evade its "
+            "bot protection, so expect this to often fail. See README. "
+            "Use --zillow-html to parse a page saved from your browser "
+            "instead."
+        ),
+    )
+    parser.add_argument(
+        "--zillow-html",
+        metavar="PATH",
+        help="Parse a Zillow results page saved from your browser instead of fetching live.",
     )
     parser.add_argument(
         "--output",
@@ -98,10 +139,20 @@ def run(argv: Optional[List[str]] = None) -> int:
             print(county)
         return 0
 
-    if not args.counties and not args.manual_html:
+    if not any(
+        [
+            args.counties,
+            args.manual_html,
+            args.realtor_com,
+            args.realtor_com_html,
+            args.zillow,
+            args.zillow_html,
+        ]
+    ):
         parser.error(
-            "Specify at least one of --counties or --manual-html "
-            "(or use --list-counties)."
+            "Specify at least one source: --counties, --manual-html, "
+            "--realtor-com, --realtor-com-html, --zillow, or "
+            "--zillow-html (or use --list-counties)."
         )
 
     listings = []
@@ -129,6 +180,58 @@ def run(argv: Optional[List[str]] = None) -> int:
         except Exception as exc:  # noqa: BLE001 - report and keep going or abort
             had_errors = True
             print(f"[{county_key}] ERROR parsing {path}: {exc}", file=sys.stderr)
+            if not args.continue_on_error:
+                return 1
+
+    if args.realtor_com:
+        try:
+            fetched = RealtorComSource().fetch_listings()
+            print(f"[realtor.com] fetched {len(fetched)} listings", file=sys.stderr)
+            listings.extend(fetched)
+        except Exception as exc:  # noqa: BLE001 - report and keep going or abort
+            had_errors = True
+            print(f"[realtor.com] ERROR: {exc}", file=sys.stderr)
+            if not args.continue_on_error:
+                return 1
+
+    if args.realtor_com_html:
+        try:
+            html = Path(args.realtor_com_html).read_text(encoding="utf-8", errors="replace")
+            fetched = RealtorComSource.parse_html(html)
+            print(
+                f"[realtor.com] parsed {len(fetched)} listings from {args.realtor_com_html}",
+                file=sys.stderr,
+            )
+            listings.extend(fetched)
+        except Exception as exc:  # noqa: BLE001 - report and keep going or abort
+            had_errors = True
+            print(f"[realtor.com] ERROR parsing {args.realtor_com_html}: {exc}", file=sys.stderr)
+            if not args.continue_on_error:
+                return 1
+
+    if args.zillow:
+        try:
+            fetched = ZillowSource().fetch_listings()
+            print(f"[zillow] fetched {len(fetched)} listings", file=sys.stderr)
+            listings.extend(fetched)
+        except Exception as exc:  # noqa: BLE001 - report and keep going or abort
+            had_errors = True
+            print(f"[zillow] ERROR: {exc}", file=sys.stderr)
+            if not args.continue_on_error:
+                return 1
+
+    if args.zillow_html:
+        try:
+            html = Path(args.zillow_html).read_text(encoding="utf-8", errors="replace")
+            fetched = ZillowSource.parse_html(html)
+            print(
+                f"[zillow] parsed {len(fetched)} listings from {args.zillow_html}",
+                file=sys.stderr,
+            )
+            listings.extend(fetched)
+        except Exception as exc:  # noqa: BLE001 - report and keep going or abort
+            had_errors = True
+            print(f"[zillow] ERROR parsing {args.zillow_html}: {exc}", file=sys.stderr)
             if not args.continue_on_error:
                 return 1
 

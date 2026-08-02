@@ -1,7 +1,10 @@
 # florida-real-estate
 
 A small Python agent that collects **foreclosed condo listings in Florida**
-from public county/court records and exports them to a single CSV.
+and exports them to a single CSV. Its primary, most reliable source is
+public county/court foreclosure records; it can optionally also search
+realtor.com and Zillow, best-effort, when those sites don't block it (see
+below -- they usually do).
 
 ## How it works
 
@@ -10,7 +13,9 @@ Clerk of Court. Most counties contract with the **RealForeclose /
 RealAuction** platform (`<county>.realforeclose.com`) to run their online
 auction calendars. This tool is built around that platform, plus a manual
 fallback for counties (or moments) where the live site blocks automated
-requests.
+requests. `--realtor-com` and `--zillow` layer in those two commercial
+listing sites the same way -- live if reachable, manual-HTML fallback if
+not.
 
 ```
 County auction page (live or saved HTML)
@@ -27,6 +32,49 @@ County auction page (live or saved HTML)
         |
         v
   csv_export  ---------------> florida_foreclosed_condos.csv
+```
+
+## Realtor.com and Zillow (best-effort, likely blocked)
+
+`--realtor-com` and `--zillow` add those two sites as extra sources on
+top of the county public records above. **Read this before turning them
+on:**
+
+- **Both sites' Terms of Service prohibit automated scraping.** Zillow's
+  in particular is explicit about this and Zillow has a history of
+  actively enforcing it (bot-mitigation, and legal action against
+  parties that scrape at scale). realtor.com's terms similarly prohibit
+  automated data harvesting.
+- **These adapters make one ordinary HTTP request each** -- the same
+  request your browser would make -- and do nothing to evade bot
+  detection, solve CAPTCHAs, or rotate IPs. If the site blocks it, that
+  is treated as the correct outcome, not a bug: the adapter raises a
+  clear error and stops rather than trying to work around the block.
+  Don't extend these adapters with stealth/evasion techniques.
+- **In this project's development environment, both sites were
+  completely unreachable** -- even a live test against `--realtor-com
+  --zillow` failed at the network/proxy level before ever reaching
+  either site. So neither adapter's parsing logic could be verified
+  against a real response; it's written against how each site has
+  historically server-rendered search results into a `<script
+  id="__NEXT_DATA__">` JSON blob, which is undocumented and can change
+  at any time. Try it from your own machine and expect to need to adjust
+  the JSON path in `sources/realtor_com.py` / `sources/zillow.py` after
+  inspecting a real response.
+- **For occasional personal lookups**, use `--realtor-com-html PATH` /
+  `--zillow-html PATH` instead: save the results page from your own
+  logged-in browser and it's parsed with the identical logic, no
+  automated request involved.
+- **For anything beyond that**, use each site's official data channels
+  (realtor.com's RDC API / data licensing program; Zillow's Bridge
+  Interactive for MLS participants) rather than scraping.
+
+```bash
+# Live (likely to fail -- see above):
+fl-foreclosed-condos --realtor-com --zillow --continue-on-error --output out.csv
+
+# From a page you saved yourself:
+fl-foreclosed-condos --realtor-com-html saved_pages/realtor.html --zillow-html saved_pages/zillow.html --output out.csv
 ```
 
 ## Important limitations (read this first)
@@ -62,6 +110,10 @@ County auction page (live or saved HTML)
   request rates low. This tool does not do anything to evade bot
   detection -- when a site blocks it, the intended response is to fall
   back to the manual-HTML workflow, not to try to get around the block.
+- **realtor.com and Zillow are optional, secondary sources with real
+  ToS restrictions** -- see the dedicated section above before using
+  `--realtor-com` / `--zillow`. County public records remain the primary,
+  most reliable source this tool is built around.
 
 ## Installation
 
@@ -95,10 +147,14 @@ browser and parse that instead:
 fl-foreclosed-condos --manual-html miami-dade=saved_pages/miami_dade.html --output florida_foreclosed_condos.csv
 ```
 
-Both flags are repeatable and can be combined in a single run. Add
-`--continue-on-error` to have a failing county get skipped (with an error
-printed to stderr) instead of aborting the whole run, and
-`--include-all-property-types` to keep every row instead of condos only.
+`--counties` and `--manual-html` are repeatable, and any combination of
+`--counties`, `--manual-html`, `--realtor-com`, `--realtor-com-html`,
+`--zillow`, and `--zillow-html` can be used together in one run (see the
+[Realtor.com and Zillow](#realtorcom-and-zillow-best-effort-likely-blocked)
+section above before turning those two on). Add `--continue-on-error` to
+have a failing source get skipped (with an error printed to stderr)
+instead of aborting the whole run, and `--include-all-property-types` to
+keep every row instead of condos only.
 
 ### Output CSV columns
 
