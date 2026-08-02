@@ -1,0 +1,102 @@
+# Florida county foreclosure auction sources.
+#
+# IMPORTANT: `subdomain` values here are based on general public knowledge
+# that these counties' clerks contract with the RealForeclose/RealAuction
+# platform. They were NOT verified against the live sites in this session
+# (outbound fetch was unavailable), so confirm each subdomain and the
+# `selectors` block below against the real page before relying on them --
+# vendor platforms change deployments and county contracts over time.
+#
+# To add a county: add an entry under `counties`, set `platform`, and
+# either rely on the shared `selectors` defaults or override them per
+# county if that county's page markup differs.
+
+counties:
+  miami-dade:
+    display_name: "Miami-Dade County"
+    platform: realforeclose
+    subdomain: miamidade
+  broward:
+    display_name: "Broward County"
+    platform: realforeclose
+    subdomain: broward
+  palm-beach:
+    display_name: "Palm Beach County"
+    platform: realforeclose
+    subdomain: palmbeach
+  hillsborough:
+    display_name: "Hillsborough County"
+    platform: realforeclose
+    subdomain: hillsborough
+  pinellas:
+    display_name: "Pinellas County"
+    platform: realforeclose
+    subdomain: pinellas
+  orange:
+    display_name: "Orange County"
+    platform: realforeclose
+    subdomain: myorangeclerk
+  lee:
+    display_name: "Lee County"
+    platform: realforeclose
+    subdomain: lee
+  pasco:
+    display_name: "Pasco County"
+    platform: realforeclose
+    subdomain: pasco
+  polk:
+    display_name: "Polk County"
+    platform: realforeclose
+    subdomain: polk
+  volusia:
+    display_name: "Volusia County"
+    platform: realforeclose
+    subdomain: volusia
+  brevard:
+    display_name: "Brevard County"
+    platform: realforeclose
+    subdomain: brevard
+  sarasota:
+    display_name: "Sarasota County"
+    platform: realforeclose
+    subdomain: sarasota
+  manatee:
+    display_name: "Manatee County"
+    platform: realforeclose
+    subdomain: manatee
+  seminole:
+    display_name: "Seminole County"
+    platform: realforeclose
+    subdomain: seminole
+  osceola:
+    display_name: "Osceola County"
+    platform: realforeclose
+    subdomain: osceola
+  collier:
+    display_name: "Collier County"
+    platform: realforeclose
+    subdomain: collier
+  charlotte:
+    display_name: "Charlotte County"
+    platform: realforeclose
+    subdomain: charlotte
+  escambia:
+    display_name: "Escambia County"
+    platform: realforeclose
+    subdomain: escambia
+  marion:
+    display_name: "Marion County"
+    platform: realforeclose
+    subdomain: marion
+
+# Default CSS selectors shared by every `realforeclose` county above.
+# Override any of these under a specific county entry as `selectors:`
+# if that county's markup differs from the common default.
+selectors:
+  row_selector: "table.itemgridtable tr, table.grid tr, table.searchResultsTable tr"
+  case_number_selector: ".AN_CaseNumber, .caseNumber"
+  parcel_id_selector: ".AN_ParcelID, .parcelId"
+  address_selector: ".AN_PropertyAddress, .propertyAddress"
+  opening_bid_selector: ".AN_OpeningBid, .openingBid, .finalJudgmentAmount"
+  sale_date_selector: ".AN_AuctionDate, .auctionDate, .saleDate"
+  detail_link_selector: "a"
