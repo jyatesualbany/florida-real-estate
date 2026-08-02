@@ -67,7 +67,11 @@ on:**
   automated request involved.
 - **For anything beyond that**, use each site's official data channels
   (realtor.com's RDC API / data licensing program; Zillow's Bridge
-  Interactive for MLS participants) rather than scraping.
+  Interactive for MLS participants) rather than scraping. See
+  [`OFFICIAL_CHANNELS.md`](OFFICIAL_CHANNELS.md) for these plus, more
+  importantly, how to get Florida foreclosure data in bulk directly from
+  county Clerks via a public records request -- often a better option
+  than any of the scraping sources in this repo.
 
 ```bash
 # Live (likely to fail -- see above):
